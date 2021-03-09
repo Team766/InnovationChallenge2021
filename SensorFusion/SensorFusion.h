@@ -1,15 +1,22 @@
-struct Ang { double t_x; double t_y; double t_z;};
+struct Ang { double t_x; double t_y; double t_z;}; 
 double gyroAngleX;
 double gyroAngleY;
 double yaw, roll, pitch, accAngleX, accAngleY;
-Ang fusion(double x, double y, double z, double g_x, double g_y, double g_z){
+Ang fusionXYZ(double x, double y, double z, double roll, double pitch, double yaw){ 
   double t_x, t_y, t_z;
-  t_x = t_x + x*cos(g_x);
-  t_z = t_z + x*sin(g_x);
-  t_y = t_y + y*cos(g_y);
-  t_z = t_z + y*sin(g_y);
-  t_x = t_x + z*sin(g_z); // note there is some ambiguity here, this could be either x or y based on orientation, not sure how to figure out which
-  t_z = t_z + z*sin(g_z);
+  //the general approach is to break each possible angle into components, and then add all the components together
+  t_x = t_x + x*cos(pitch);
+  t_z = t_z + x*sin(pitch);
+  t_z = t_z + z*cos(pitch);
+  t_x = t_x + z*sin(pitch);
+  t_y = t_y + y*cos(roll);
+  t_z = t_z + y*sin(roll);
+  t_y = t_y + z*cos(roll);
+  t_z = t_z  + z*sin(roll);
+  t_y = t_y + x*sin(yaw); // note there is some ambiguity here, this could be either x or y based on orientation, not sure how to figure out which
+  t_x = t_x + x*cos(yaw);
+  t_y = t_y + y*cos(yaw);
+  t_y = t_y + y*sin(yaw);
   Ang a{
     t_x,
     t_y,
