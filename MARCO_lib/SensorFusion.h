@@ -13,16 +13,16 @@
 
 float gyroAngleX;
 float gyroAngleY;
-float gyroAngleZ
+float gyroAngleZ;
 float yaw, roll, pitch, accAngleX, accAngleY;
 double t_x, t_y, t_z;
 double diff_x, diff_y, diff_z;
-float * a;
-float * b;
-float * c;
-double * d;
-double trash;
+static double a[3];
+static double b[3];
+static double c[3];
+static double d[3];
 
+double yaw_gyro, yaw_save, yaw_acc, compYaw;
 
 //stuff for kalman filter
 
@@ -46,6 +46,13 @@ uint32_t timer;
  *  From testing over a 30 minute period the sensor drift was ±1 degree, the kalman filter is more resistant to drift
  *  The kalman filter is a lot more accurate in the long run, but not so accurate intially
  */
+double gyroYaw(double gyroZ2, double dtt, double yaw_old){
+  double gyro_yaw = (yaw_old + gyroZ2*dtt); 
+  double gyro_yaw_deg = gyro_yaw * 180/PI;
+  return gyro_yaw_deg;
+}
+
+
 void setupKalman (double accX, double accY, double accZ){
   
   // Source: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf eq. 28 and eq. 29
@@ -67,26 +74,29 @@ void setupKalman (double accX, double accY, double accZ){
     timer = micros();
 }
 
-void runKalman (double accX, double accY, double accZ, double gyroX, double gyroY, double gyroZ) { //acceleration in three axis and angle in rad/s on three axis
-
-    double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
-    timer = micros();
+double * runKalman (double accX, double accY, double accZ, double gyroX, double gyroY, double gyroZ, double dt) { //acceleration in three axis and angle in rad/s on three axis
   
     // Source: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf eq. 25 and eq. 26
     // atan2 outputs the value of -π to π (radians) - see http://en.wikipedia.org/wiki/Atan2
     // It is then converted from radians to degrees
+ 
+
+    
   #ifdef RESTRICT_PITCH // Eq. 25 and 26
     double roll  = atan2(accY, accZ) * RAD_TO_DEG;
     double pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+    double acc_yaw = atan (accZ/sqrt(accX*accX + accZ*accZ)) * RAD_TO_DEG; //get an approximation of the yaw, this is relative and needs to be calibrated
   #else // Eq. 28 and 29
     double roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
     double pitch = atan2(-accX, accZ) * RAD_TO_DEG;
+    double acc_yaw = atan (accZ/sqrt(accX*accX + accZ*accZ)) * RAD_TO_DEG; //get an approximation of the yaw, this is relative and needs to be calibrated
   #endif
     
     double gyroXrate = gyroX / 131.0; // Convert to deg/s
     double gyroYrate = gyroY / 131.0; // Convert to deg/s
-    double gyroZrate = gyroz / 131.0; // Convert to deg/s
-    double yaw = gyroZrate * dt; //get an approximation of the yaw
+    double gyroZrate = gyroZ / 131.0; // Convert to deg/s
+
+    
   #ifdef RESTRICT_PITCH
     // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
     if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
@@ -114,7 +124,7 @@ void runKalman (double accX, double accY, double accZ, double gyroX, double gyro
       gyroXrate = -gyroXrate; // Invert rate, so it fits the restriced accelerometer reading
     kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
   #endif
-    
+  
     gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
     gyroYangle += gyroYrate * dt;
     //gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
@@ -128,9 +138,18 @@ void runKalman (double accX, double accY, double accZ, double gyroX, double gyro
       gyroXangle = kalAngleX;
     if (gyroYangle < -180 || gyroYangle > 180)
       gyroYangle = kalAngleY;
+   d[0] = kalAngleX;
+   d[1] = kalAngleY;
+   
+   yaw_gyro = gyroYaw(gyroZ, dt, yaw_save) + 0.0057; //gyro plus an error correction value to reduce drift probably need to customize for your IMU
+   yaw_save = yaw_gyro * PI/180;
+   yaw_acc = atan2(accZ, sqrt(accX*accX + accZ*accZ)) * RAD_TO_DEG;
+   compYaw = 0.5*yaw_acc + 0.5*yaw_gyro;
+   d[2] = compYaw;
+   
+   
+   return d;
 }
-
-
 
 
 
@@ -153,7 +172,7 @@ void runKalman (double accX, double accY, double accZ, double gyroX, double gyro
  * It's optimized and gets rid of some unneeded features so it can run faster
  * data is returned in a custom data class (Ang) that holds three double variables. Ryan made me do it
  */
-float * fusionXYZ(double x, double y, double z, double roll, double pitch, double yaw){ 
+double * fusionXYZ(double x, double y, double z, double roll, double pitch, double yaw){ 
   //the general approach is to break each possible angle into components, and then add all the components together
   t_x = t_x + x*SpeedTrig.cos(pitch);
   t_z = t_z + x*SpeedTrig.sin(pitch);
@@ -178,7 +197,7 @@ Code based on arduino gimbal https://howtomechatronics.com/tutorials/arduino/ard
  * Leave error blank if you didn't calculate it, this isn't the same value as the one found by the GravityCal function
 
 */
-float fusionPRY(float GyroX, float GyroY,float GyroZ, float AccX, float AccY, float AccZ, float error){
+double * fusionPRY(float GyroX, float GyroY,float GyroZ, float AccX, float AccY, float AccZ, float error){
 // unit conversion
   gyroAngleX = GyroX * 180 / PI; 
   Serial.println(gyroAngleX);
@@ -192,13 +211,13 @@ float fusionPRY(float GyroX, float GyroY,float GyroZ, float AccX, float AccY, fl
   // Complementary filter - combine acceleromter and gyro angle values to get a more accurate angle
   roll = 0.96 * gyroAngleX + 0.04 * accAngleX; //combine X acceleration and gyro this line is causing an issue
   pitch = 0.96 * gyroAngleY + 0.04 * accAngleY;
-  //b[0] = roll;
- // b[1] = pitch;
+  b[0] = roll;
+  b[1] = pitch;
   b[2] = yaw;
-  return accAngleX;
+  return b;
 }
 //super fast and accrate PRY coordinate finding using acceleration vectors but it only goes from 90° to -90°
-float * fusionAccelPRY (double accX, double accY, float accZ, float error){
+double * fusionAccelPRY (double accX, double accY, float accZ, float error){
   // Calculating Roll and Pitch from the accelerometer data these functions don't seem to be working
   double roll  = atan2(accY, accZ) * RAD_TO_DEG;
   double pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
