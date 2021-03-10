@@ -10,9 +10,13 @@ int piezoPin = 8;
 #define freq 100 //frequency to run code in Hz
 char ground;
 int velofball = 0;
-unsigned long timer, timer_before;
 int delta_t;
-double * pry; //setup array pry to store data
+double i_gyroy = 0;
+double i_gyrox = 0;
+double i_gyroz = 0;
+double accel_X, accel_Y, accel_Z, gyro_X, gyro_Y, gyro_Z;
+double * pr;
+double junk;
 Adafruit_LSM6DSO32 dso32;
 
 
@@ -35,6 +39,24 @@ void setup(void) {
   dso32.setAccelDataRate(LSM6DS_RATE_12_5_HZ);
   dso32.setGyroDataRate(LSM6DS_RATE_12_5_HZ);
   pinMode(piezoPin, OUTPUT);
+
+  //kalman filter stuff
+  
+  sensors_event_t accel;
+  sensors_event_t gyro;
+  sensors_event_t temp;
+  dso32.getEvent(&accel, &gyro, &temp);
+  /* Update all the values */
+  accel_X = accel.acceleration.x;
+  accel_Y = accel.acceleration.y;
+  accel_Z = accel.acceleration.z;
+  tempRaw = temp.temperature;
+  gyro_X = gyro.gyro.x;
+  gyro_Y = gyro.gyro.y;
+  gyro_Z = gyro.gyro.z;
+  
+  setupKalman(accel_X, accel_Y, accel_Z);
+  
 }
  
 void loop() {
@@ -42,21 +64,16 @@ void loop() {
   sensors_event_t gyro;
   sensors_event_t temp;
   dso32.getEvent(&accel, &gyro, &temp);
+  /* Update all the values */
+  accel_X = accel.acceleration.x;
+  accel_Y = accel.acceleration.y;
+  accel_Z = accel.acceleration.z;
+  tempRaw = temp.temperature;
+  gyro_X = gyro.gyro.x;
+  gyro_Y = gyro.gyro.y;
+  gyro_Z = gyro.gyro.z;
+  runKalman(accel_X, accel_Y, accel_Z, gyro_X, gyro_Y, gyro_Z);
+  Serial.println(kalAngleX);
+  delay(10);
 
-  //Display the results (acceleration is measured in m/s^2)
- 
-  Serial.print("\t\tAccel X: ");
-  Serial.print(accel.acceleration.x);
-  Serial.print(" \tY: ");
-  Serial.print(accel.acceleration.y);
-  Serial.print(" \tZ: ");
-  Serial.print(accel.acceleration.z);
-  Serial.println(" m/s^2 ");
-  timer = millis()*1e-3; //return elapsed time since arduino started running sketch in seconds
-  delta_t = timer-timer_before;
-  pry = FusionPRY(gyro.gyro.x, gyro.gyro.y, gyro.gyro.z, accel.acceleration.x, accel.acceleration.y, accel.acceleration.z, 0); //returns array [roll, pitch, yaw] with index [0, 1, 2]
-  Serial.println(pry[1]);
-  
-  
-  delayMicroseconds(1000);
 }
