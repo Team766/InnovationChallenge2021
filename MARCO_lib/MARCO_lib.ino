@@ -16,9 +16,8 @@ double i_gyrox = 0;
 double i_gyroz = 0;
 double accel_X, accel_Y, accel_Z, gyro_X, gyro_Y, gyro_Z;
 double * pr;
-double junk;
+double * rpy;
 Adafruit_LSM6DSO32 dso32;
-
 
 void setup(void) {
   Serial.begin(115200);
@@ -72,10 +71,14 @@ void loop() {
   gyro_X = gyro.gyro.x;
   gyro_Y = gyro.gyro.y;
   gyro_Z = gyro.gyro.z;
-  runKalman(accel_X, accel_Y, accel_Z, gyro_X, gyro_Y, gyro_Z);
-  Serial.print("\n Roll: "); Serial.print(kalAngleX);
-  Serial.print("\n Pitch: "); Serial.print(kalAngleY);
-  Serial.print("\n Yaw: "); Serial.print(yaw);
+  
+  double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
+    timer = micros();
+  
+  rpy = runKalman(accel_X, accel_Y, accel_Z, gyro_X, gyro_Y, gyro_Z, dt);
+  Serial.print("\n Yaw: "); Serial.print(rpy[2]);
+  Serial.print("\n Roll: "); Serial.print(rpy[0]);
+  Serial.print("\n Pitch: "); Serial.print(rpy[1]);
   delay(10);
 
 }
