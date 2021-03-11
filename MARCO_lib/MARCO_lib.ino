@@ -15,7 +15,7 @@ double i_gyroy = 0;
 double i_gyrox = 0;
 double i_gyroz = 0;
 double accel_X, accel_Y, accel_Z, gyro_X, gyro_Y, gyro_Z;
-double * pr;
+double * xyz;
 double * rpy;
 Adafruit_LSM6DSO32 dso32;
 
@@ -79,6 +79,10 @@ void loop() {
   Serial.print("\n Yaw: "); Serial.print(rpy[2]);
   Serial.print("\n Roll: "); Serial.print(rpy[0]);
   Serial.print("\n Pitch: "); Serial.print(rpy[1]);
+  xyz = fusionXYZ(accel_X, accel_Y, accel_Z, rpy[0], rpy[1], rpy[2]);
+  Serial.print("\n X: "); Serial.print(xyz[0]);
+  Serial.print("\n Y: "); Serial.print(xyz[1]);
+  Serial.print("\n Z: "); Serial.print(xyz[2]);
   delay(10);
 
 }
