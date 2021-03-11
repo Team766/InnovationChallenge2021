@@ -177,6 +177,9 @@ double * runKalman (double accX, double accY, double accZ, double gyroX, double 
  */
 double * fusionXYZ(double x, double y, double z, double roll, double pitch, double yaw){ 
   //the general approach is to break each possible angle into components, and then add all the components together
+  t_x = 0;
+  t_y = 0;
+  t_z = 0;
   t_x = t_x + x*SpeedTrig.cos(pitch);
   t_z = t_z + x*SpeedTrig.sin(pitch);
   t_z = t_z + z*SpeedTrig.cos(pitch);
@@ -185,10 +188,6 @@ double * fusionXYZ(double x, double y, double z, double roll, double pitch, doub
   t_z = t_z + y*SpeedTrig.sin(roll);
   t_y = t_y + z*SpeedTrig.cos(roll);
   t_z = t_z  + z*SpeedTrig.sin(roll);
-  t_y = t_y + x*SpeedTrig.sin(yaw); // note there is some ambiguity here, this could be either x or y based on orientation, not sure how to figure out which
-  t_x = t_x + x*SpeedTrig.cos(yaw);
-  t_y = t_y + y*SpeedTrig.cos(yaw);
-  t_y = t_y + y*SpeedTrig.sin(yaw);
   a[0] = t_x;
   a[1] = t_y;
   a[2] = t_z;
