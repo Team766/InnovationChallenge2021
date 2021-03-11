@@ -3,7 +3,7 @@
  * Dependencies:
  *  -- Arduino math library (For the two atan functions in radians that I haven't gotten rid of yet)
  *  -- SpeedyTrig library (Fast trig that returns in degrees, what is mostly used to make the code run faster)
- *  -- Kalman (use the one by TKJ ELectronics)
+ *  -- Kalman Filter Library (use the one by TKJ ELectronics)
  * Written by Ron Freeman for FRC 2021 Innovation Challenge based on KalmanFilter example code
  */
 #include "SpeedTrig.h"
@@ -30,6 +30,7 @@ double yaw_gyro, yaw_save, yaw_acc, compYaw;
 
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
+Kalman kalmanZ;
 
 /* IMU Data */
 double accX, accY, accZ;
@@ -38,7 +39,7 @@ int16_t tempRaw;
 
 double gyroXangle, gyroYangle; // Angle calculate using the gyro only
 double compAngleX, compAngleY; // Calculated angle using a complementary filter
-double kalAngleX, kalAngleY; // Calculated angle using a Kalman filter
+double kalAngleX, kalAngleY, kalAngleZ; // Calculated angle using a Kalman filter
 
 uint32_t timer;
 
@@ -66,6 +67,7 @@ void setupKalman (double accX, double accY, double accZ){
   #endif
     kalmanX.setAngle(roll); // Set starting angle
     kalmanY.setAngle(pitch);
+    kalmanZ.setAngle(0);
     gyroXangle = roll;
     gyroYangle = pitch;
     compAngleX = roll;
@@ -144,8 +146,9 @@ double * runKalman (double accX, double accY, double accZ, double gyroX, double 
    yaw_gyro = gyroYaw(gyroZ, dt, yaw_save) + 0.0057; //gyro plus an error correction value to reduce drift probably need to customize for your IMU
    yaw_save = yaw_gyro * PI/180;
    yaw_acc = atan2(accZ, sqrt(accX*accX + accZ*accZ)) * RAD_TO_DEG;
-   compYaw = 0.5*yaw_acc + 0.5*yaw_gyro;
-   d[2] = compYaw;
+   compYaw = 0.2*yaw_acc + 0.8*yaw_gyro;
+   kalAngleZ = kalmanZ.getAngle(yaw_gyro, gyroZ, dt);
+   d[2] = kalAngleZ;
    
    
    return d;
